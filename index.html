@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Home Manager</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🏡 Home Manager</h1>
+    <nav class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="chores">Chores</button>
+      <button class="tab-btn" data-tab="calendar">Calendar</button>
+      <button class="tab-btn" data-tab="shopping">Shopping</button>
+      <button class="tab-btn" data-tab="smarthome">Smart Home</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main id="app">
+    <section id="dashboard" class="tab-panel active">
+      <h2>Today</h2>
+      <div class="card-grid">
+        <div class="card">
+          <h3>Open Chores</h3>
+          <ul id="dashboard-chores" class="compact-list"></ul>
+        </div>
+        <div class="card">
+          <h3>Upcoming Events</h3>
+          <ul id="dashboard-events" class="compact-list"></ul>
+        </div>
+        <div class="card">
+          <h3>Shopping List</h3>
+          <ul id="dashboard-shopping" class="compact-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="chores" class="tab-panel">
+      <h2>Chores</h2>
+      <form id="chore-form" class="inline-form">
+        <input type="text" id="chore-text" placeholder="Chore (e.g. Take out trash)" required />
+        <select id="chore-assignee"></select>
+        <input type="date" id="chore-due" />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="chore-list" class="item-list"></ul>
+    </section>
+
+    <section id="calendar" class="tab-panel">
+      <h2>Family Calendar</h2>
+      <form id="event-form" class="inline-form">
+        <input type="text" id="event-title" placeholder="Event (e.g. Soccer practice)" required />
+        <input type="date" id="event-date" required />
+        <input type="time" id="event-time" />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="event-list" class="item-list"></ul>
+    </section>
+
+    <section id="shopping" class="tab-panel">
+      <h2>Shopping List</h2>
+      <form id="shopping-form" class="inline-form">
+        <input type="text" id="shopping-text" placeholder="Item (e.g. Milk)" required />
+        <button type="submit">Add</button>
+      </form>
+      <div class="list-actions">
+        <button id="clear-shopping-done" class="secondary">Clear checked items</button>
+      </div>
+      <ul id="shopping-list" class="item-list"></ul>
+    </section>
+
+    <section id="smarthome" class="tab-panel">
+      <h2>Smart Home</h2>
+      <p class="hint">
+        Optional: connect this dashboard to a <strong>Home Assistant</strong> instance
+        (the open-source smart-home platform) to see live device states here.
+        Configure the connection in <em>Settings</em> first.
+      </p>
+      <div id="smarthome-status" class="hint"></div>
+      <form id="entity-form" class="inline-form">
+        <input type="text" id="entity-id" placeholder="Entity ID (e.g. light.living_room)" />
+        <button type="submit">Track</button>
+      </form>
+      <ul id="entity-list" class="item-list"></ul>
+    </section>
+
+    <section id="settings" class="tab-panel">
+      <h2>Settings</h2>
+
+      <h3>Family Members</h3>
+      <form id="member-form" class="inline-form">
+        <input type="text" id="member-name" placeholder="Name" required />
+        <input type="color" id="member-color" value="#4f8cff" />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="member-list" class="item-list"></ul>
+
+      <h3>Home Assistant Connection</h3>
+      <p class="hint">
+        Find these in your Home Assistant instance under
+        Settings &rarr; About (URL) and Settings &rarr; Security &rarr; Long-Lived Access Tokens.
+        These are saved only in this browser's local storage.
+      </p>
+      <form id="ha-form" class="inline-form">
+        <input type="url" id="ha-url" placeholder="https://your-home-assistant:8123" />
+        <input type="password" id="ha-token" placeholder="Long-lived access token" />
+        <button type="submit">Save</button>
+      </form>
+
+      <h3>Data</h3>
+      <p class="hint">All data is stored locally in this browser (localStorage). It does not sync between devices yet.</p>
+      <button id="export-data" class="secondary">Export data (JSON)</button>
+      <button id="reset-data" class="secondary danger">Reset all data</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

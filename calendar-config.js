@@ -9,4 +9,4 @@
 // approved test users (you and your family) to grant it access at all.
 //
 // See README.md's "Google Calendar sync" section for how to get this value.
-export const googleClientId = "REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID";
+export const googleClientId = "291004482783-r0c4hhdc689a71667bvto8gn6vhp4k9h.apps.googleusercontent.com";

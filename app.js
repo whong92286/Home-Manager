@@ -16,6 +16,7 @@ import {
   setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { googleClientId } from "./calendar-config.js";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
@@ -31,6 +32,9 @@ const DEFAULT_STATE = {
     haUrl: "",
     haToken: "",
     entities: [],
+  },
+  calendarSync: {
+    calendarId: "",
   },
 };
 
@@ -214,13 +218,14 @@ function renderEvents() {
   sorted.forEach((ev) => {
     const li = document.createElement("li");
     li.innerHTML = `
-      <span class="item-text">${escapeHtml(ev.title)}</span>
+      <span class="item-text">${escapeHtml(ev.title)}${ev.fromGoogle ? " 📅" : ""}</span>
       <span class="item-meta">${formatDate(ev.date)}${ev.time ? " " + ev.time : ""}</span>
       <button class="delete-btn" title="Delete">✕</button>
     `;
     li.querySelector(".delete-btn").addEventListener("click", () => {
       state.events = state.events.filter((x) => x.id !== ev.id);
       saveState();
+      deleteEventFromCalendar(ev).catch(() => {});
     });
     list.appendChild(li);
   });
@@ -245,10 +250,162 @@ document.getElementById("event-form").addEventListener("submit", (e) => {
   const date = document.getElementById("event-date").value;
   const time = document.getElementById("event-time").value;
   if (!title || !date) return;
-  state.events.push({ id: uid(), title, date, time });
+  const ev = { id: uid(), title, date, time };
+  state.events.push(ev);
   saveState();
   e.target.reset();
+  renderEvents();
+  pushEventToCalendar(ev)
+    .then(() => saveState())
+    .catch(() => {});
 });
+
+// ---------- Google Calendar sync ----------
+// This is separate from the app's Google sign-in above: reading/writing
+// Calendar events needs its own OAuth scope, requested here via Google's
+// Identity Services library. The resulting access token lives only in
+// memory for this browser tab (never saved to Firestore or localStorage)
+// and lasts about an hour, so syncing only happens while the app is open.
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+let calendarAccessToken = null;
+let calendarTokenClient = null;
+
+function calendarStatus(text) {
+  document.getElementById("calendar-connect-status").textContent = text;
+  document.getElementById("calendar-sync-status").textContent = text;
+}
+
+function ensureCalendarTokenClient() {
+  if (calendarTokenClient) return calendarTokenClient;
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+    throw new Error("Google library still loading, try again in a moment.");
+  }
+  calendarTokenClient = window.google.accounts.oauth2.initTokenClient({
+    client_id: googleClientId,
+    scope: CALENDAR_SCOPE,
+    callback: (tokenResponse) => {
+      if (tokenResponse && tokenResponse.access_token) {
+        calendarAccessToken = tokenResponse.access_token;
+        syncCalendarNow();
+      }
+    },
+  });
+  return calendarTokenClient;
+}
+
+document.getElementById("connect-calendar-btn").addEventListener("click", () => {
+  try {
+    ensureCalendarTokenClient().requestAccessToken({ prompt: calendarAccessToken ? "" : "consent" });
+  } catch (err) {
+    calendarStatus(err.message);
+  }
+});
+
+document.getElementById("calendar-id-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  state.calendarSync.calendarId = document.getElementById("calendar-id").value.trim();
+  saveState();
+});
+
+function renderCalendarSyncSettings() {
+  document.getElementById("calendar-id").value = state.calendarSync.calendarId || "";
+}
+
+async function calendarApiFetch(path, options = {}) {
+  if (!calendarAccessToken) throw new Error("not-connected");
+  const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(state.calendarSync.calendarId)}`;
+  const res = await fetch(base + path, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${calendarAccessToken}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+  if (res.status === 401) {
+    calendarAccessToken = null;
+    throw new Error("token-expired");
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.status === 204 ? null : res.json();
+}
+
+async function pushEventToCalendar(ev) {
+  if (!calendarAccessToken || !state.calendarSync.calendarId || ev.fromGoogle) return;
+  const body = {
+    summary: ev.title,
+    start: ev.time ? { dateTime: `${ev.date}T${ev.time}:00` } : { date: ev.date },
+    end: ev.time ? { dateTime: `${ev.date}T${ev.time}:00` } : { date: ev.date },
+    extendedProperties: { private: { homeManagerId: ev.id } },
+  };
+  if (ev.googleEventId) {
+    await calendarApiFetch(`/events/${ev.googleEventId}`, { method: "PATCH", body: JSON.stringify(body) });
+  } else {
+    const created = await calendarApiFetch(`/events`, { method: "POST", body: JSON.stringify(body) });
+    ev.googleEventId = created.id;
+  }
+}
+
+async function deleteEventFromCalendar(ev) {
+  if (!calendarAccessToken || !ev.googleEventId || ev.fromGoogle) return;
+  await calendarApiFetch(`/events/${ev.googleEventId}`, { method: "DELETE" });
+}
+
+async function pullEventsFromCalendar() {
+  const timeMin = new Date().toISOString();
+  const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+  const data = await calendarApiFetch(
+    `/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250`
+  );
+  const homeManagerIds = new Set(state.events.map((e) => e.id));
+  const byGoogleId = new Map(state.events.filter((e) => e.googleEventId).map((e) => [e.googleEventId, e]));
+
+  (data.items || []).forEach((item) => {
+    const hmId = item.extendedProperties && item.extendedProperties.private && item.extendedProperties.private.homeManagerId;
+    if (hmId && homeManagerIds.has(hmId)) return; // our own pushed event, already represented locally
+    const date = item.start.date || (item.start.dateTime || "").slice(0, 10);
+    const time = item.start.dateTime ? item.start.dateTime.slice(11, 16) : "";
+    const existing = byGoogleId.get(item.id);
+    if (existing) {
+      existing.title = item.summary || "(untitled)";
+      existing.date = date;
+      existing.time = time;
+    } else {
+      state.events.push({ id: uid(), title: item.summary || "(untitled)", date, time, googleEventId: item.id, fromGoogle: true });
+    }
+  });
+}
+
+async function syncCalendarNow() {
+  if (!state.calendarSync.calendarId) {
+    calendarStatus("Add a shared calendar ID above first.");
+    return;
+  }
+  if (!calendarAccessToken) {
+    calendarStatus("Not connected on this device.");
+    return;
+  }
+  calendarStatus("Syncing...");
+  try {
+    for (const ev of state.events.filter((e) => !e.fromGoogle)) {
+      await pushEventToCalendar(ev);
+    }
+    await pullEventsFromCalendar();
+    saveState();
+    renderEvents();
+    calendarStatus("Synced just now.");
+  } catch (err) {
+    calendarStatus(
+      err.message === "token-expired" ? "Connection expired — click Connect again." : "Sync failed: " + err.message
+    );
+  }
+}
+
+document.getElementById("sync-calendar-now").addEventListener("click", syncCalendarNow);
+
+setInterval(() => {
+  if (calendarAccessToken) syncCalendarNow();
+}, 5 * 60 * 1000);
 
 // ---------- Shopping List ----------
 function renderShopping() {
@@ -417,4 +574,5 @@ function renderAll() {
   renderEvents();
   renderShopping();
   renderSmartHomeSettings();
+  renderCalendarSyncSettings();
 }

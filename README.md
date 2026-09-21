@@ -134,6 +134,61 @@ automatically.
 
 You can use **Settings → Export data** any time to download a backup as JSON.
 
+## Google Calendar sync (optional)
+
+Two-way sync between the Calendar tab and a shared Google Calendar: events you
+add here appear on that calendar, and anything already on it (work events,
+vacations, birthdays, etc.) appears here too. Because this app has no backend
+server, syncing only happens while someone has the app open in a browser tab
+(on load, every 5 minutes automatically, and via the "Sync now" button) —
+changes don't sync instantly if nobody has it open.
+
+### One-time setup (in Google Cloud Console)
+
+This app's Firebase project is also a Google Cloud project, so this all
+happens in the same project as your Firebase setup.
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com/) and
+   make sure the `home-manager-550e9` project is selected (top-left dropdown).
+2. **Enable the Calendar API:** go to **APIs & Services → Library**, search
+   for "Google Calendar API", click it, then click **Enable**.
+3. **Configure the consent screen:** go to **APIs & Services → OAuth consent
+   screen**. If not already configured, choose **External**, fill in an app
+   name (e.g. "Home Manager") and your email for the required fields, and save
+   through the wizard. Then find the **Test users** section and add both your
+   and your wife's Gmail addresses. This keeps the app in "Testing" mode,
+   which avoids Google's app-review process (only needed for public apps) —
+   fine since it's just your family using it.
+4. **Create an OAuth Client ID:** go to **APIs & Services → Credentials** →
+   **Create Credentials → OAuth client ID** → Application type: **Web
+   application** → under "Authorized JavaScript origins" click **Add URI** and
+   enter `https://home-manager-550e9.firebaseapp.com` → **Create**. Copy the
+   **Client ID** it shows you (looks like `123...-abc....apps.googleusercontent.com`).
+5. Open `calendar-config.js` in this repo and paste that value in place of
+   `REPLACE_WITH_YOUR_GOOGLE_OAUTH_CLIENT_ID`. Like the Firebase config, this
+   isn't secret — it's safe to commit.
+
+### Create the shared calendar
+
+1. In [Google Calendar](https://calendar.google.com/), under "Other calendars"
+   click **+ → Create new calendar**, name it (e.g. "Family"), and create it.
+2. Find that calendar in the left sidebar → hover it → click the **⋮** menu →
+   **Settings and sharing**.
+3. Under **Share with specific people**, add both your and your wife's Gmail
+   addresses with **"Make changes to events"** permission.
+4. Scroll down to **Integrate calendar** and copy the **Calendar ID** (looks
+   like `abcdef123456@group.calendar.google.com`).
+5. In Home Manager, go to **Settings → Google Calendar Sync**, paste that ID,
+   and save.
+
+### Connect each device
+
+Because the Calendar API needs its own permission grant separate from signing
+in, click **Connect Google Calendar (this device)** in Settings once per
+phone/computer you use — you'll see a Google consent popup the first time.
+After that, syncing happens automatically while the app is open, or via the
+**Sync now** button on the Calendar tab.
+
 ## Connecting Home Assistant (optional)
 
 If you already run [Home Assistant](https://www.home-assistant.io/) on your
@@ -168,6 +223,7 @@ index.html           Page layout, tabs, and sign-in screen
 style.css             Styling
 app.js                App logic, Firebase Auth + Firestore sync
 firebase-config.js    Your Firebase project's public config (fill in during setup)
+calendar-config.js    Google OAuth Client ID for Calendar sync (fill in during setup)
 firebase.json         Firebase Hosting config (which files to deploy)
 .firebaserc           Which Firebase project this repo deploys to
 ```

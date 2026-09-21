@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Home Manager</title>
 <link rel="stylesheet" href="style.css" />
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div id="signin-screen" class="signin-screen">
@@ -65,12 +66,19 @@
 
     <section id="calendar" class="tab-panel">
       <h2>Family Calendar</h2>
+      <p class="hint">
+        Two-way synced with your shared Google Calendar (configure in Settings).
+      </p>
       <form id="event-form" class="inline-form">
         <input type="text" id="event-title" placeholder="Event (e.g. Soccer practice)" required />
         <input type="date" id="event-date" required />
         <input type="time" id="event-time" />
         <button type="submit">Add</button>
       </form>
+      <div class="list-actions">
+        <button id="sync-calendar-now" class="secondary">Sync now</button>
+        <span id="calendar-sync-status" class="hint"></span>
+      </div>
       <ul id="event-list" class="item-list"></ul>
     </section>
 
@@ -123,6 +131,20 @@
         <input type="password" id="ha-token" placeholder="Long-lived access token" />
         <button type="submit">Save</button>
       </form>
+
+      <h3>Google Calendar Sync</h3>
+      <p class="hint">
+        Two-way sync with a shared Google Calendar: events added here appear on that
+        calendar, and events already on it (work events, vacations, birthdays, etc.)
+        appear here too. Connecting is per-device and needs to be done once on each
+        phone/computer you use.
+      </p>
+      <form id="calendar-id-form" class="inline-form">
+        <input type="text" id="calendar-id" placeholder="Shared calendar ID (e.g. abc123@group.calendar.google.com)" />
+        <button type="submit">Save</button>
+      </form>
+      <button id="connect-calendar-btn" class="secondary">Connect Google Calendar (this device)</button>
+      <p id="calendar-connect-status" class="hint"></p>
 
       <h3>Data</h3>
       <p class="hint">All data is stored in a shared Firebase database and synced live to everyone signed in.</p>

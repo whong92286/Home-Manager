@@ -51,15 +51,23 @@ document.getElementById("signin-btn").addEventListener("click", () => {
   signInWithRedirect(auth, new GoogleAuthProvider());
 });
 
-getRedirectResult(auth).catch((err) => {
-  document.getElementById("signin-error").textContent = "Sign-in failed: " + err.message;
-});
+console.log("[HomeManager] page loaded, checking for pending redirect result...");
+getRedirectResult(auth)
+  .then((result) => {
+    console.log("[HomeManager] getRedirectResult resolved:", result ? result.user.email : "no pending redirect");
+  })
+  .catch((err) => {
+    console.error("[HomeManager] getRedirectResult error:", err.code, err.message);
+    document.getElementById("signin-error").textContent = "Sign-in failed: " + err.message;
+  });
 
 document.getElementById("signout-btn").addEventListener("click", () => {
   signOut(auth);
 });
 
 onAuthStateChanged(auth, (user) => {
+  console.log("[HomeManager] onAuthStateChanged fired, user:", user ? user.email : null);
+
   if (unsubscribeSnapshot) {
     unsubscribeSnapshot();
     unsubscribeSnapshot = null;

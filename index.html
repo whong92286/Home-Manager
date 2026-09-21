@@ -7,19 +7,33 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="app-header">
-    <h1>🏡 Home Manager</h1>
-    <nav class="tabs" id="tabs">
-      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="chores">Chores</button>
-      <button class="tab-btn" data-tab="calendar">Calendar</button>
-      <button class="tab-btn" data-tab="shopping">Shopping</button>
-      <button class="tab-btn" data-tab="smarthome">Smart Home</button>
-      <button class="tab-btn" data-tab="settings">Settings</button>
-    </nav>
-  </header>
+  <div id="signin-screen" class="signin-screen">
+    <div class="signin-card">
+      <h1>🏡 Home Manager</h1>
+      <p class="hint">Sign in with a Google account to see your family's shared dashboard.</p>
+      <button id="signin-btn">Sign in with Google</button>
+      <p id="signin-error" class="signin-error"></p>
+    </div>
+  </div>
 
-  <main id="app">
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="app-header">
+      <h1>🏡 Home Manager</h1>
+      <div class="account-bar">
+        <span id="user-email" class="hint"></span>
+        <button id="signout-btn" class="secondary">Sign out</button>
+      </div>
+      <nav class="tabs" id="tabs">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="chores">Chores</button>
+        <button class="tab-btn" data-tab="calendar">Calendar</button>
+        <button class="tab-btn" data-tab="shopping">Shopping</button>
+        <button class="tab-btn" data-tab="smarthome">Smart Home</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+      </nav>
+    </header>
+
+    <main id="app">
     <section id="dashboard" class="tab-panel active">
       <h2>Today</h2>
       <div class="card-grid">
@@ -102,7 +116,7 @@
       <p class="hint">
         Find these in your Home Assistant instance under
         Settings &rarr; About (URL) and Settings &rarr; Security &rarr; Long-Lived Access Tokens.
-        These are saved only in this browser's local storage.
+        This is shared with everyone signed in to this dashboard.
       </p>
       <form id="ha-form" class="inline-form">
         <input type="url" id="ha-url" placeholder="https://your-home-assistant:8123" />
@@ -111,12 +125,13 @@
       </form>
 
       <h3>Data</h3>
-      <p class="hint">All data is stored locally in this browser (localStorage). It does not sync between devices yet.</p>
+      <p class="hint">All data is stored in a shared Firebase database and synced live to everyone signed in.</p>
       <button id="export-data" class="secondary">Export data (JSON)</button>
-      <button id="reset-data" class="secondary danger">Reset all data</button>
+      <button id="reset-data" class="secondary danger">Reset all data (affects everyone)</button>
     </section>
-  </main>
+    </main>
+  </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -193,3 +193,54 @@ button.danger {
 .list-actions {
   margin-bottom: 10px;
 }
+
+.signin-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.signin-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+}
+
+.signin-card h1 {
+  margin-top: 0;
+}
+
+.signin-card button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.signin-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  min-height: 1.2em;
+}
+
+.account-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.account-bar .secondary {
+  margin: 0;
+  padding: 4px 10px;
+}

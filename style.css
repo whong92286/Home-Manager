@@ -226,6 +226,19 @@ button.danger {
   padding-bottom: 0;
 }
 
+.category-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 12px 0 2px;
+}
+
+.category-heading:first-of-type {
+  margin-top: 0;
+}
+
 .signin-screen {
   min-height: 100vh;
   display: flex;

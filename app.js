@@ -609,25 +609,85 @@ async function scanGmailForInvites() {
 }
 
 // ---------- Shopping List ----------
+const UNSORTED_STORE = "Other";
+const UNSORTED_CATEGORY = "Uncategorized";
+
+function groupBy(items, keyFn, fallback) {
+  const map = new Map();
+  items.forEach((item) => {
+    const key = keyFn(item) || fallback;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(item);
+  });
+  return new Map(
+    [...map.entries()].sort(([a], [b]) => {
+      if (a === fallback) return 1;
+      if (b === fallback) return -1;
+      return a.localeCompare(b);
+    })
+  );
+}
+
+function renderShoppingOptions() {
+  const stores = [...new Set(state.shopping.map((i) => i.store).filter(Boolean))].sort();
+  const categories = [...new Set(state.shopping.map((i) => i.category).filter(Boolean))].sort();
+  document.getElementById("shopping-store-options").innerHTML = stores.map((s) => `<option value="${escapeHtml(s)}">`).join("");
+  document.getElementById("shopping-category-options").innerHTML = categories
+    .map((c) => `<option value="${escapeHtml(c)}">`)
+    .join("");
+}
+
 function renderShopping() {
-  const list = document.getElementById("shopping-list");
-  list.innerHTML = "";
-  state.shopping.forEach((item) => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <input type="checkbox" ${item.done ? "checked" : ""} />
-      <span class="item-text ${item.done ? "done" : ""}">${escapeHtml(item.text)}</span>
-      <button class="delete-btn" title="Delete">✕</button>
-    `;
-    li.querySelector("input").addEventListener("change", (e) => {
-      item.done = e.target.checked;
-      saveState();
+  const container = document.getElementById("shopping-list");
+  container.innerHTML = "";
+  renderShoppingOptions();
+
+  if (state.shopping.length === 0) {
+    container.innerHTML = `<p class="hint">List is empty</p>`;
+  }
+
+  const byStore = groupBy(state.shopping, (i) => i.store, UNSORTED_STORE);
+  byStore.forEach((storeItems, store) => {
+    const storeGroup = document.createElement("div");
+    storeGroup.className = "day-group";
+
+    const storeHeading = document.createElement("h3");
+    storeHeading.className = "day-heading";
+    storeHeading.textContent = store;
+    storeGroup.appendChild(storeHeading);
+
+    const byCategory = groupBy(storeItems, (i) => i.category, UNSORTED_CATEGORY);
+    byCategory.forEach((items, category) => {
+      if (byCategory.size > 1 || category !== UNSORTED_CATEGORY) {
+        const catHeading = document.createElement("h4");
+        catHeading.className = "category-heading";
+        catHeading.textContent = category;
+        storeGroup.appendChild(catHeading);
+      }
+
+      const list = document.createElement("ul");
+      list.className = "item-list";
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <input type="checkbox" ${item.done ? "checked" : ""} />
+          <span class="item-text ${item.done ? "done" : ""}">${escapeHtml(item.text)}</span>
+          <button class="delete-btn" title="Delete">✕</button>
+        `;
+        li.querySelector("input").addEventListener("change", (e) => {
+          item.done = e.target.checked;
+          saveState();
+        });
+        li.querySelector(".delete-btn").addEventListener("click", () => {
+          state.shopping = state.shopping.filter((x) => x.id !== item.id);
+          saveState();
+        });
+        list.appendChild(li);
+      });
+      storeGroup.appendChild(list);
     });
-    li.querySelector(".delete-btn").addEventListener("click", () => {
-      state.shopping = state.shopping.filter((x) => x.id !== item.id);
-      saveState();
-    });
-    list.appendChild(li);
+
+    container.appendChild(storeGroup);
   });
 
   const dashList = document.getElementById("dashboard-shopping");
@@ -648,8 +708,10 @@ function renderShopping() {
 document.getElementById("shopping-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const text = document.getElementById("shopping-text").value.trim();
+  const store = document.getElementById("shopping-store").value.trim();
+  const category = document.getElementById("shopping-category").value.trim();
   if (!text) return;
-  state.shopping.push({ id: uid(), text, done: false });
+  state.shopping.push({ id: uid(), text, store, category, done: false });
   saveState();
   e.target.reset();
 });

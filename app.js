@@ -246,10 +246,14 @@ function renderEvents() {
   }
 
   byDate.forEach((evs, date) => {
+    const isToday = date === today;
+    const group = document.createElement("div");
+    group.className = "day-group" + (isToday ? " today" : "");
+
     const heading = document.createElement("h3");
     heading.className = "day-heading";
-    heading.textContent = formatDateLong(date) + (date === today ? " (Today)" : "");
-    container.appendChild(heading);
+    heading.textContent = isToday ? "Today" : formatDateLong(date);
+    group.appendChild(heading);
 
     const list = document.createElement("ul");
     list.className = "item-list";
@@ -268,7 +272,8 @@ function renderEvents() {
       });
       list.appendChild(li);
     });
-    container.appendChild(list);
+    group.appendChild(list);
+    container.appendChild(group);
   });
 
   const dashList = document.getElementById("dashboard-events");

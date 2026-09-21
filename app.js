@@ -1,10 +1,28 @@
-// Home Manager - client-side app. All data lives in the browser's localStorage.
-const STORAGE_KEY = "homeManagerState";
+// Home Manager - client-side app. Data is shared and synced live via Firebase
+// (Firestore) between everyone signed in with an authorized Google account.
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+  setDoc,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const householdRef = doc(db, "households", "main");
 
 const DEFAULT_STATE = {
-  members: [
-    { id: uid(), name: "Everyone", color: "#4f8cff" },
-  ],
+  members: [{ id: uid(), name: "Everyone", color: "#4f8cff" }],
   chores: [],
   events: [],
   shopping: [],
@@ -19,23 +37,66 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-function loadState() {
+let state = structuredClone(DEFAULT_STATE);
+let unsubscribeSnapshot = null;
+
+// ---------- Auth ----------
+document.getElementById("signin-btn").addEventListener("click", () => {
+  document.getElementById("signin-error").textContent = "";
+  signInWithPopup(auth, new GoogleAuthProvider()).catch((err) => {
+    document.getElementById("signin-error").textContent = "Sign-in failed: " + err.message;
+  });
+});
+
+document.getElementById("signout-btn").addEventListener("click", () => {
+  signOut(auth);
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (unsubscribeSnapshot) {
+    unsubscribeSnapshot();
+    unsubscribeSnapshot = null;
+  }
+
+  if (!user) {
+    document.getElementById("signin-screen").hidden = false;
+    document.getElementById("app-shell").hidden = true;
+    return;
+  }
+
+  document.getElementById("user-email").textContent = user.email;
+
+  unsubscribeSnapshot = onSnapshot(
+    householdRef,
+    (snap) => {
+      document.getElementById("signin-screen").hidden = true;
+      document.getElementById("app-shell").hidden = false;
+      if (snap.exists()) {
+        state = { ...structuredClone(DEFAULT_STATE), ...snap.data() };
+      } else {
+        state = structuredClone(DEFAULT_STATE);
+        setDoc(householdRef, state).catch((err) => console.error("Failed to initialize shared data", err));
+      }
+      renderAll();
+      refreshSmartHome();
+    },
+    (err) => {
+      document.getElementById("signin-screen").hidden = false;
+      document.getElementById("app-shell").hidden = true;
+      document.getElementById("signin-error").textContent =
+        "Your Google account isn't authorized for this family dashboard.";
+      console.error(err);
+    }
+  );
+});
+
+async function saveState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_STATE);
-    const parsed = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT_STATE), ...parsed };
-  } catch (e) {
-    console.error("Failed to load state, resetting.", e);
-    return structuredClone(DEFAULT_STATE);
+    await setDoc(householdRef, state);
+  } catch (err) {
+    console.error("Failed to save shared data", err);
   }
 }
-
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-let state = loadState();
 
 // ---------- Tabs ----------
 document.getElementById("tabs").addEventListener("click", (e) => {
@@ -61,7 +122,6 @@ function renderMembers() {
     li.querySelector(".delete-btn").addEventListener("click", () => {
       state.members = state.members.filter((x) => x.id !== m.id);
       saveState();
-      renderAll();
     });
     list.appendChild(li);
   });
@@ -81,7 +141,6 @@ document.getElementById("member-form").addEventListener("submit", (e) => {
   saveState();
   e.target.reset();
   document.getElementById("member-color").value = "#4f8cff";
-  renderAll();
 });
 
 function memberById(id) {
@@ -106,12 +165,10 @@ function renderChores() {
     li.querySelector("input").addEventListener("change", (e) => {
       c.done = e.target.checked;
       saveState();
-      renderAll();
     });
     li.querySelector(".delete-btn").addEventListener("click", () => {
       state.chores = state.chores.filter((x) => x.id !== c.id);
       saveState();
-      renderAll();
     });
     list.appendChild(li);
   });
@@ -140,7 +197,6 @@ document.getElementById("chore-form").addEventListener("submit", (e) => {
   state.chores.push({ id: uid(), text, assignee, due, done: false });
   saveState();
   e.target.reset();
-  renderAll();
 });
 
 // ---------- Calendar / Events ----------
@@ -158,7 +214,6 @@ function renderEvents() {
     li.querySelector(".delete-btn").addEventListener("click", () => {
       state.events = state.events.filter((x) => x.id !== ev.id);
       saveState();
-      renderAll();
     });
     list.appendChild(li);
   });
@@ -186,7 +241,6 @@ document.getElementById("event-form").addEventListener("submit", (e) => {
   state.events.push({ id: uid(), title, date, time });
   saveState();
   e.target.reset();
-  renderAll();
 });
 
 // ---------- Shopping List ----------
@@ -203,12 +257,10 @@ function renderShopping() {
     li.querySelector("input").addEventListener("change", (e) => {
       item.done = e.target.checked;
       saveState();
-      renderAll();
     });
     li.querySelector(".delete-btn").addEventListener("click", () => {
       state.shopping = state.shopping.filter((x) => x.id !== item.id);
       saveState();
-      renderAll();
     });
     list.appendChild(li);
   });
@@ -235,13 +287,11 @@ document.getElementById("shopping-form").addEventListener("submit", (e) => {
   state.shopping.push({ id: uid(), text, done: false });
   saveState();
   e.target.reset();
-  renderAll();
 });
 
 document.getElementById("clear-shopping-done").addEventListener("click", () => {
   state.shopping = state.shopping.filter((i) => !i.done);
   saveState();
-  renderAll();
 });
 
 // ---------- Smart Home (Home Assistant) ----------
@@ -336,10 +386,9 @@ document.getElementById("export-data").addEventListener("click", () => {
 });
 
 document.getElementById("reset-data").addEventListener("click", () => {
-  if (!confirm("This will erase all Home Manager data in this browser. Continue?")) return;
+  if (!confirm("This will erase all Home Manager data for EVERYONE signed in to this dashboard. Continue?")) return;
   state = structuredClone(DEFAULT_STATE);
   saveState();
-  renderAll();
 });
 
 // ---------- Helpers ----------
@@ -362,6 +411,3 @@ function renderAll() {
   renderShopping();
   renderSmartHomeSettings();
 }
-
-renderAll();
-refreshSmartHome();

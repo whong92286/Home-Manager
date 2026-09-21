@@ -401,11 +401,167 @@ async function syncCalendarNow() {
   }
 }
 
-document.getElementById("sync-calendar-now").addEventListener("click", syncCalendarNow);
+document.getElementById("sync-calendar-now").addEventListener("click", () => {
+  syncCalendarNow();
+  if (gmailAccessToken) scanGmailForInvites().catch(() => {});
+});
 
 setInterval(() => {
   if (calendarAccessToken) syncCalendarNow();
+  if (gmailAccessToken) scanGmailForInvites().catch(() => {});
 }, 5 * 60 * 1000);
+
+// ---------- Gmail invite detection ----------
+// Separate OAuth grant from Calendar sync above, since reading Gmail is a
+// much broader permission than reading/writing calendar events. Looks only
+// for formal calendar invites (messages containing a text/calendar / .ics
+// part), not free-form event mentions in ordinary emails -- that would need
+// AI-based parsing and a backend to call it securely, which this app doesn't have.
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+let gmailAccessToken = null;
+let gmailTokenClient = null;
+
+function ensureGmailTokenClient() {
+  if (gmailTokenClient) return gmailTokenClient;
+  if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+    throw new Error("Google library still loading, try again in a moment.");
+  }
+  gmailTokenClient = window.google.accounts.oauth2.initTokenClient({
+    client_id: googleClientId,
+    scope: GMAIL_SCOPE,
+    callback: (tokenResponse) => {
+      if (tokenResponse && tokenResponse.access_token) {
+        gmailAccessToken = tokenResponse.access_token;
+        document.getElementById("gmail-connect-status").textContent = "Connected. Scanning for invites...";
+        scanGmailForInvites().catch((err) => {
+          document.getElementById("gmail-connect-status").textContent = "Scan failed: " + err.message;
+        });
+      }
+    },
+  });
+  return gmailTokenClient;
+}
+
+document.getElementById("connect-gmail-btn").addEventListener("click", () => {
+  try {
+    ensureGmailTokenClient().requestAccessToken({ prompt: gmailAccessToken ? "" : "consent" });
+  } catch (err) {
+    document.getElementById("gmail-connect-status").textContent = err.message;
+  }
+});
+
+async function gmailApiFetch(path) {
+  if (!gmailAccessToken) throw new Error("not-connected");
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${path}`, {
+    headers: { Authorization: `Bearer ${gmailAccessToken}` },
+  });
+  if (res.status === 401) {
+    gmailAccessToken = null;
+    throw new Error("token-expired");
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function base64UrlDecode(data) {
+  const binary = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function findCalendarParts(part, found = []) {
+  if (!part) return found;
+  const isIcs = part.mimeType === "text/calendar" || (part.filename && part.filename.toLowerCase().endsWith(".ics"));
+  if (isIcs) found.push(part);
+  (part.parts || []).forEach((p) => findCalendarParts(p, found));
+  return found;
+}
+
+async function getIcsText(messageId, part) {
+  if (part.body && part.body.data) return base64UrlDecode(part.body.data);
+  if (part.body && part.body.attachmentId) {
+    const att = await gmailApiFetch(`/messages/${messageId}/attachments/${part.body.attachmentId}`);
+    return base64UrlDecode(att.data);
+  }
+  return null;
+}
+
+function unescapeIcsText(value) {
+  return value.replace(/\\n/g, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
+}
+
+function parseIcsDate(rawKey, value) {
+  if (rawKey.includes("VALUE=DATE") && !rawKey.includes("VALUE=DATE-TIME")) {
+    return { date: `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}` };
+  }
+  const m = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi] = m;
+  return { date: `${y}-${mo}-${d}`, time: `${h}:${mi}` };
+}
+
+function parseIcsEvents(icsText) {
+  const lines = icsText.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r\n|\n/);
+  const events = [];
+  let current = null;
+  let method = "";
+  lines.forEach((line) => {
+    if (line.startsWith("METHOD:")) method = line.slice(7).trim();
+    if (line === "BEGIN:VEVENT") {
+      current = {};
+      return;
+    }
+    if (line === "END:VEVENT") {
+      if (current) events.push({ ...current, method });
+      current = null;
+      return;
+    }
+    if (!current) return;
+    const idx = line.indexOf(":");
+    if (idx === -1) return;
+    const rawKey = line.slice(0, idx);
+    const value = line.slice(idx + 1);
+    const key = rawKey.split(";")[0];
+    if (key === "SUMMARY") current.summary = unescapeIcsText(value);
+    else if (key === "UID") current.uid = value;
+    else if (key === "DTSTART") current.start = parseIcsDate(rawKey, value);
+  });
+  return events;
+}
+
+async function scanGmailForInvites() {
+  if (!gmailAccessToken) return;
+  const list = await gmailApiFetch(`/messages?q=${encodeURIComponent("filename:ics newer_than:60d")}&maxResults=25`);
+  const messages = list.messages || [];
+  const existingUids = new Set(state.events.filter((e) => e.gmailInviteUid).map((e) => e.gmailInviteUid));
+  let added = 0;
+
+  for (const m of messages) {
+    const full = await gmailApiFetch(`/messages/${m.id}?format=full`);
+    const icsParts = findCalendarParts(full.payload);
+    for (const part of icsParts) {
+      const icsText = await getIcsText(m.id, part);
+      if (!icsText) continue;
+      for (const ev of parseIcsEvents(icsText)) {
+        if (!ev.uid || !ev.summary || !ev.start || ev.method === "CANCEL") continue;
+        if (existingUids.has(ev.uid)) continue;
+        const localEvent = { id: uid(), title: ev.summary, date: ev.start.date, time: ev.start.time || "", gmailInviteUid: ev.uid };
+        state.events.push(localEvent);
+        existingUids.add(ev.uid);
+        added++;
+        await pushEventToCalendar(localEvent).catch(() => {});
+      }
+    }
+  }
+
+  if (added > 0) {
+    saveState();
+    renderEvents();
+  }
+  document.getElementById("gmail-connect-status").textContent =
+    added > 0 ? `Added ${added} invite(s) just now.` : "Scanned — no new invites found.";
+}
 
 // ---------- Shopping List ----------
 function renderShopping() {

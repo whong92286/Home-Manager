@@ -189,6 +189,48 @@ phone/computer you use — you'll see a Google consent popup the first time.
 After that, syncing happens automatically while the app is open, or via the
 **Sync now** button on the Calendar tab.
 
+## Gmail invite detection (optional)
+
+Automatically adds formal calendar invitations from your Gmail (emails
+containing a `.ics` invite file) to your shared calendar. This is separate
+from, and a bigger permission grant than, Calendar sync above — it reads your
+whole Gmail inbox at the permission level, even though the app's code only
+looks at messages with calendar invite attachments. Only set this up if
+you're comfortable with that.
+
+It does **not** detect casual event mentions in ordinary email text (e.g. "let's
+grab dinner Friday") — only structured calendar invite files, which is a much
+more reliable, deterministic thing to detect.
+
+### One-time setup
+
+Same Google Cloud project as before (`home-manager-550e9`):
+
+1. In [console.cloud.google.com](https://console.cloud.google.com/), go to
+   **APIs & Services → Library**, search for **"Gmail API"**, and click **Enable**.
+2. Go to **APIs & Services → OAuth consent screen** (may show as "Google Auth
+   Platform" depending on when you're reading this — Google has been
+   redesigning this page). Look for a **Data access** or **Scopes** section
+   and check whether it lists the Gmail readonly scope
+   (`https://www.googleapis.com/auth/gmail.readonly`). If there's an "Add or
+   remove scopes" option and it's not listed, add it. If you don't see a way
+   to do this, it may not be required — try connecting from the app first
+   (next section) and come back here only if that fails.
+3. No new OAuth Client ID needed — this reuses the same one Calendar sync uses.
+
+### Connect Gmail
+
+In Home Manager, go to **Settings → Gmail Invite Detection** and click
+**Connect Gmail (detect calendar invites)**. Approve the consent screen (it
+may look more serious/scarier than the Calendar one, since Gmail access is a
+more sensitive permission — that's expected for a personal "Testing" mode app
+like this one, not a sign something is wrong). It'll scan recent email
+automatically once connected, and again every 5 minutes while the app is open,
+or via **Sync now** on the Calendar tab.
+
+Like Calendar sync, this connects per-device/per-Gmail-account — each person
+connects separately for their own inbox to be scanned.
+
 ## Connecting Home Assistant (optional)
 
 If you already run [Home Assistant](https://www.home-assistant.io/) on your

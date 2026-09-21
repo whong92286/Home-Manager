@@ -10,10 +10,10 @@
 // Get these values from: Firebase Console -> Project settings (gear icon)
 // -> General tab -> "Your apps" -> the web app's config snippet.
 export const firebaseConfig = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_PROJECT.firebaseapp.com",
-  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID",
+  apiKey: "AIzaSyDnK6AppJ5QMY7ZsdotvOVjDMCIo6x4cxA",
+  authDomain: "home-manager-550e9.firebaseapp.com",
+  projectId: "home-manager-550e9",
+  storageBucket: "home-manager-550e9.firebasestorage.app",
+  messagingSenderId: "291004482783",
+  appId: "1:291004482783:web:aced25a2850c0023dd556a",
 };

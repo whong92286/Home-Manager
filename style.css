@@ -202,6 +202,10 @@ button.danger {
   padding: 16px;
 }
 
+.signin-screen[hidden] {
+  display: none;
+}
+
 .signin-card {
   background: var(--card-bg);
   border: 1px solid var(--border);

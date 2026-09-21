@@ -4,7 +4,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -41,11 +42,17 @@ let state = structuredClone(DEFAULT_STATE);
 let unsubscribeSnapshot = null;
 
 // ---------- Auth ----------
+// Uses a full-page redirect (not a popup) for sign-in: some static hosts,
+// including GitHub Pages, send security headers that prevent Firebase's
+// sign-in popup from closing itself, which leaves the popup hanging and
+// the sign-in stuck. Redirect-based sign-in avoids that entirely.
 document.getElementById("signin-btn").addEventListener("click", () => {
   document.getElementById("signin-error").textContent = "";
-  signInWithPopup(auth, new GoogleAuthProvider()).catch((err) => {
-    document.getElementById("signin-error").textContent = "Sign-in failed: " + err.message;
-  });
+  signInWithRedirect(auth, new GoogleAuthProvider());
+});
+
+getRedirectResult(auth).catch((err) => {
+  document.getElementById("signin-error").textContent = "Sign-in failed: " + err.message;
 });
 
 document.getElementById("signout-btn").addEventListener("click", () => {

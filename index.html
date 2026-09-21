@@ -146,6 +146,22 @@
       <button id="connect-calendar-btn" class="secondary">Connect Google Calendar (this device)</button>
       <p id="calendar-connect-status" class="hint"></p>
 
+      <h3>Gmail Invite Detection</h3>
+      <p class="hint">
+        Optional and separate from Calendar sync above. When connected, Home Manager
+        scans your Gmail for formal calendar invitations (emails containing a
+        <code>.ics</code> invite file) and automatically adds them to your shared
+        calendar. <strong>This grants read access to your whole Gmail inbox at the
+        permission level</strong> &mdash; the app only looks at messages with calendar
+        invite attachments and never stores or sends email content anywhere, but the
+        access you grant is broader than what the app actually uses. Only connect this
+        if you're comfortable with that. It only scans whichever Gmail account you
+        connect with, on this device &mdash; each person connects separately for their
+        own inbox to be scanned.
+      </p>
+      <button id="connect-gmail-btn" class="secondary">Connect Gmail (detect calendar invites)</button>
+      <p id="gmail-connect-status" class="hint"></p>
+
       <h3>Data</h3>
       <p class="hint">All data is stored in a shared Firebase database and synced live to everyone signed in.</p>
       <button id="export-data" class="secondary">Export data (JSON)</button>

@@ -637,6 +637,8 @@ function renderShoppingOptions() {
     .join("");
 }
 
+let editingShoppingId = null;
+
 function renderShopping() {
   const container = document.getElementById("shopping-list");
   container.innerHTML = "";
@@ -669,14 +671,47 @@ function renderShopping() {
       list.className = "item-list";
       items.forEach((item) => {
         const li = document.createElement("li");
+
+        if (editingShoppingId === item.id) {
+          li.className = "editing-row";
+          li.innerHTML = `
+            <input type="text" class="edit-text" value="${escapeHtml(item.text)}" />
+            <input type="text" class="edit-store" value="${escapeHtml(item.store || "")}" placeholder="Store" list="shopping-store-options" />
+            <input type="text" class="edit-category" value="${escapeHtml(item.category || "")}" placeholder="Category" list="shopping-category-options" />
+            <button class="save-edit-btn">Save</button>
+            <button class="cancel-edit-btn secondary">Cancel</button>
+          `;
+          li.querySelector(".save-edit-btn").addEventListener("click", () => {
+            const text = li.querySelector(".edit-text").value.trim();
+            if (!text) return;
+            item.text = text;
+            item.store = li.querySelector(".edit-store").value.trim();
+            item.category = li.querySelector(".edit-category").value.trim();
+            editingShoppingId = null;
+            saveState();
+            renderShopping();
+          });
+          li.querySelector(".cancel-edit-btn").addEventListener("click", () => {
+            editingShoppingId = null;
+            renderShopping();
+          });
+          list.appendChild(li);
+          return;
+        }
+
         li.innerHTML = `
           <input type="checkbox" ${item.done ? "checked" : ""} />
           <span class="item-text ${item.done ? "done" : ""}">${escapeHtml(item.text)}</span>
+          <button class="edit-btn" title="Edit">✎</button>
           <button class="delete-btn" title="Delete">✕</button>
         `;
         li.querySelector("input").addEventListener("change", (e) => {
           item.done = e.target.checked;
           saveState();
+        });
+        li.querySelector(".edit-btn").addEventListener("click", () => {
+          editingShoppingId = item.id;
+          renderShopping();
         });
         li.querySelector(".delete-btn").addEventListener("click", () => {
           state.shopping = state.shopping.filter((x) => x.id !== item.id);

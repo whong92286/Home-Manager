@@ -63,13 +63,8 @@ it once.
    of the `REPLACE_WITH_...` placeholders. These values are not secret — they're
    safe to commit and push, since the Rules from step 5 are what actually protect
    your data.
-8. **Authorize your dashboard's domain:** back in **Authentication → Settings →
-   Authorized domains**, click **Add domain** and add your GitHub Pages domain,
-   e.g. `<your-username>.github.io` (see the Pages section below to get this URL).
-
-Once that's done, commit and push `firebase-config.js`, then open the app —
-you and your wife should each be able to sign in with Google and see the same
-live-updating chores, calendar, and shopping list.
+Once that's done, commit and push `firebase-config.js`. The remaining step —
+deploying the app — is covered below under **Firebase Hosting**.
 
 ## Try it locally
 
@@ -79,19 +74,49 @@ live-updating chores, calendar, and shopping list.
    folder, e.g. `python3 -m http.server 8000`, then visit `http://localhost:8000`.
 3. Sign in with an approved Google account and start adding chores, events, and shopping items.
 
-## Publish it for free with GitHub Pages
+## Publish it for free with Firebase Hosting
 
-This turns your repo into a real website your family can bookmark on their phones.
+This is the real family dashboard link — it's hosted on the same Firebase
+project as your sign-in and database, which avoids sign-in problems that
+happen when the app and the login system live on different websites.
 
-1. On GitHub, open this repository in your browser.
-2. Click **Settings** (top menu of the repo).
-3. In the left sidebar, click **Pages**.
-4. Under "Build and deployment" → "Source", choose **Deploy from a branch**.
-5. Under "Branch", choose `main` and folder `/ (root)`, then click **Save**.
-6. Wait a minute, then refresh the page — GitHub will show you a URL like
-   `https://<your-username>.github.io/Home-Manager/`. That's your family dashboard link.
+This is a one-time setup on your own computer (it needs your Google login in
+a real browser, which isn't something that can be done remotely for you).
 
-Share that link with your family (via text, a home screen bookmark, etc.).
+1. **Install Node.js** if you don't already have it: download the installer
+   from [nodejs.org](https://nodejs.org/) (choose the "LTS" version) and run it.
+2. **Get a local copy of this repo.** If you don't already have one, open a
+   terminal (Command Prompt / Terminal app) and run:
+   ```
+   git clone https://github.com/whong92286/Home-Manager.git
+   cd Home-Manager
+   ```
+   If you already have a local copy, just `cd` into it and run `git pull`.
+3. **Install the Firebase CLI** (a one-time global install):
+   ```
+   npm install -g firebase-tools
+   ```
+4. **Log in to Firebase** (this opens a browser window to sign in with the
+   Google account that owns the `home-manager-550e9` project):
+   ```
+   firebase login
+   ```
+5. **Deploy:**
+   ```
+   firebase deploy --only hosting
+   ```
+   This repo already includes the `firebase.json` / `.firebaserc` config
+   files it needs — you don't need to run `firebase init`.
+6. When it finishes, it prints a **Hosting URL** like
+   `https://home-manager-550e9.web.app` — that's your family's real dashboard
+   link going forward. Share that link (not the GitHub Pages one) with your family.
+
+**Whenever you or I change the app's code**, just re-run `firebase deploy --only hosting`
+from this folder (after `git pull`) to push the update live. If you'd like this
+to happen automatically whenever code is pushed to GitHub instead of running it
+by hand each time, run `firebase init hosting:github` instead of step 5 above —
+it walks you through connecting this GitHub repo so every push to `main` deploys
+automatically.
 
 ## How your data is stored and protected
 
@@ -102,9 +127,10 @@ Share that link with your family (via text, a home screen bookmark, etc.).
   can read or write that data.** Anyone else who opens the site can try to sign
   in, but Firestore will reject their requests — they will not see your family's
   data.
-- The web page itself is still publicly reachable (see the GitHub Pages section
-  below) — what's actually locked down is the *data*, via Firebase Auth + Rules,
-  not the page's HTML/CSS/JS, which is normal and fine for a client-side app.
+- The web page itself is still publicly reachable (see the Firebase Hosting
+  section below) — what's actually locked down is the *data*, via Firebase
+  Auth + Rules, not the page's HTML/CSS/JS, which is normal and fine for a
+  client-side app.
 
 You can use **Settings → Export data** any time to download a backup as JSON.
 
@@ -129,7 +155,7 @@ host this dashboard. Add the dashboard's URL to Home Assistant's `configuration.
 ```yaml
 http:
   cors_allowed_origins:
-    - "https://<your-username>.github.io"
+    - "https://home-manager-550e9.web.app"
 ```
 
 Then restart Home Assistant. If you don't have Home Assistant set up, you can
@@ -142,6 +168,8 @@ index.html           Page layout, tabs, and sign-in screen
 style.css             Styling
 app.js                App logic, Firebase Auth + Firestore sync
 firebase-config.js    Your Firebase project's public config (fill in during setup)
+firebase.json         Firebase Hosting config (which files to deploy)
+.firebaserc           Which Firebase project this repo deploys to
 ```
 
 ## Roadmap ideas

@@ -211,28 +211,68 @@ document.getElementById("chore-form").addEventListener("submit", (e) => {
 });
 
 // ---------- Calendar / Events ----------
+let showPastEvents = false;
+
+document.getElementById("toggle-past-events").addEventListener("click", () => {
+  showPastEvents = !showPastEvents;
+  document.getElementById("toggle-past-events").textContent = showPastEvents ? "Hide past events" : "Show past events";
+  renderEvents();
+});
+
+function formatTime12h(time) {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 function renderEvents() {
-  const list = document.getElementById("event-list");
-  list.innerHTML = "";
-  const sorted = [...state.events].sort((a, b) => `${a.date}${a.time || ""}`.localeCompare(`${b.date}${b.time || ""}`));
+  const container = document.getElementById("event-list");
+  container.innerHTML = "";
+  const today = new Date().toISOString().slice(0, 10);
+  const sorted = [...state.events]
+    .filter((ev) => showPastEvents || ev.date >= today)
+    .sort((a, b) => `${a.date}${a.time || ""}`.localeCompare(`${b.date}${b.time || ""}`));
+
+  const byDate = new Map();
   sorted.forEach((ev) => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <span class="item-text">${escapeHtml(ev.title)}${ev.fromGoogle ? " 📅" : ""}</span>
-      <span class="item-meta">${formatDate(ev.date)}${ev.time ? " " + ev.time : ""}</span>
-      <button class="delete-btn" title="Delete">✕</button>
-    `;
-    li.querySelector(".delete-btn").addEventListener("click", () => {
-      state.events = state.events.filter((x) => x.id !== ev.id);
-      saveState();
-      deleteEventFromCalendar(ev).catch(() => {});
+    if (!byDate.has(ev.date)) byDate.set(ev.date, []);
+    byDate.get(ev.date).push(ev);
+  });
+
+  if (byDate.size === 0) {
+    container.innerHTML = `<p class="hint">No ${showPastEvents ? "" : "upcoming "}events.</p>`;
+  }
+
+  byDate.forEach((evs, date) => {
+    const heading = document.createElement("h3");
+    heading.className = "day-heading";
+    heading.textContent = formatDateLong(date) + (date === today ? " (Today)" : "");
+    container.appendChild(heading);
+
+    const list = document.createElement("ul");
+    list.className = "item-list";
+    evs.forEach((ev) => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <span class="item-text">${escapeHtml(ev.title)}${ev.fromGoogle ? " 📅" : ""}</span>
+        <span class="item-meta">${ev.time ? formatTime12h(ev.time) : "All day"}</span>
+        <button class="delete-btn" title="Delete">✕</button>
+      `;
+      li.querySelector(".delete-btn").addEventListener("click", () => {
+        state.events = state.events.filter((x) => x.id !== ev.id);
+        saveState();
+        deleteEventFromCalendar(ev).catch(() => {});
+        renderEvents();
+      });
+      list.appendChild(li);
     });
-    list.appendChild(li);
+    container.appendChild(list);
   });
 
   const dashList = document.getElementById("dashboard-events");
   dashList.innerHTML = "";
-  const today = new Date().toISOString().slice(0, 10);
   const upcoming = sorted.filter((ev) => ev.date >= today).slice(0, 5);
   upcoming.forEach((ev) => {
     const li = document.createElement("li");
@@ -722,6 +762,11 @@ function formatDate(isoDate) {
   if (!isoDate) return "";
   const d = new Date(isoDate + "T00:00:00");
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatDateLong(isoDate) {
+  const d = new Date(isoDate + "T00:00:00");
+  return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
 
 function renderAll() {

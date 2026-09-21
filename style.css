@@ -194,6 +194,18 @@ button.danger {
   margin-bottom: 10px;
 }
 
+.day-heading {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 18px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.day-heading:first-child {
+  margin-top: 0;
+}
+
 .signin-screen {
   min-height: 100vh;
   display: flex;

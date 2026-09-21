@@ -87,12 +87,16 @@
       <h2>Shopping List</h2>
       <form id="shopping-form" class="inline-form">
         <input type="text" id="shopping-text" placeholder="Item (e.g. Milk)" required />
+        <input type="text" id="shopping-store" placeholder="Store (e.g. Costco)" list="shopping-store-options" />
+        <input type="text" id="shopping-category" placeholder="Category (e.g. Dairy)" list="shopping-category-options" />
         <button type="submit">Add</button>
       </form>
+      <datalist id="shopping-store-options"></datalist>
+      <datalist id="shopping-category-options"></datalist>
       <div class="list-actions">
         <button id="clear-shopping-done" class="secondary">Clear checked items</button>
       </div>
-      <ul id="shopping-list" class="item-list"></ul>
+      <div id="shopping-list"></div>
     </section>
 
     <section id="smarthome" class="tab-panel">
